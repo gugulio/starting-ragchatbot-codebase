@@ -19,10 +19,22 @@ document.addEventListener('DOMContentLoaded', () => {
     modelSelector = document.getElementById('modelSelector');
 
     setupEventListeners();
+    setupThemeToggle();
     createNewSession();
     loadCourseStats();
     loadModels();
 });
+
+// Theme toggle
+function setupThemeToggle() {
+    const toggleBtn = document.getElementById('themeToggle');
+    toggleBtn.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme') || 'dark';
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+    });
+}
 
 // Event Listeners
 function setupEventListeners() {
