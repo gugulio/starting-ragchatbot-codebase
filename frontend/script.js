@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     courseTitles = document.getElementById('courseTitles');
     modelSelector = document.getElementById('modelSelector');
 
-    initTheme();
     setupEventListeners();
     createNewSession();
     loadCourseStats();
@@ -26,16 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Theme management
-function initTheme() {
-    const saved = localStorage.getItem('theme') || 'dark';
-    document.body.setAttribute('data-theme', saved);
-}
-
 function toggleTheme() {
-    const current = document.body.getAttribute('data-theme');
-    const next = current === 'light' ? 'dark' : 'light';
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
     document.body.classList.add('theme-transitioning');
-    document.body.setAttribute('data-theme', next);
+    document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
     setTimeout(() => document.body.classList.remove('theme-transitioning'), 300);
 }
