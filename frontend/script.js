@@ -1,6 +1,26 @@
 // API base URL - use relative path to work from any host
 const API_URL = '/api';
 
+// Theme management
+function initTheme() {
+    if (localStorage.getItem('theme') === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+    }
+}
+
+function toggleTheme() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    if (isLight) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        localStorage.setItem('theme', 'light');
+    }
+}
+
+initTheme();
+
 // Global state
 let currentSessionId = null;
 let selectedModel = null;
@@ -40,6 +60,9 @@ function setupEventListeners() {
 
     // New chat button
     document.getElementById('newChatBtn').addEventListener('click', createNewSession);
+
+    // Theme toggle
+    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
