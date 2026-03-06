@@ -25,27 +25,30 @@ class CourseSearchTool(Tool):
         self.last_sources = []  # Track sources from last search
     
     def get_tool_definition(self) -> Dict[str, Any]:
-        """Return Anthropic tool definition for this tool"""
+        """Return OpenAI-compatible tool definition for this tool"""
         return {
-            "name": "search_course_content",
-            "description": "Search course materials with smart course name matching and lesson filtering",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string", 
-                        "description": "What to search for in the course content"
+            "type": "function",
+            "function": {
+                "name": "search_course_content",
+                "description": "Search course materials with smart course name matching and lesson filtering",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "What to search for in the course content"
+                        },
+                        "course_name": {
+                            "type": "string",
+                            "description": "Course title (partial matches work, e.g. 'MCP', 'Introduction')"
+                        },
+                        "lesson_number": {
+                            "type": "integer",
+                            "description": "Specific lesson number to search within (e.g. 1, 2, 3)"
+                        }
                     },
-                    "course_name": {
-                        "type": "string",
-                        "description": "Course title (partial matches work, e.g. 'MCP', 'Introduction')"
-                    },
-                    "lesson_number": {
-                        "type": "integer",
-                        "description": "Specific lesson number to search within (e.g. 1, 2, 3)"
-                    }
-                },
-                "required": ["query"]
+                    "required": ["query"]
+                }
             }
         }
     
@@ -89,28 +92,39 @@ class CourseSearchTool(Tool):
         """Format search results with course and lesson context"""
         formatted = []
         sources = []  # Track sources for the UI
-        
+        seen_sources = set()  # Deduplicate by (course_title, lesson_number)
+
         for doc, meta in zip(results.documents, results.metadata):
             course_title = meta.get('course_title', 'unknown')
             lesson_num = meta.get('lesson_number')
-            
+
             # Build context header
             header = f"[{course_title}"
             if lesson_num is not None:
                 header += f" - Lesson {lesson_num}"
             header += "]"
-            
-            # Track source for the UI
-            source = course_title
-            if lesson_num is not None:
-                source += f" - Lesson {lesson_num}"
-            sources.append(source)
-            
+
             formatted.append(f"{header}\n{doc}")
-        
-        # Store sources for retrieval
+
+            # Deduplicate sources
+            source_key = (course_title, lesson_num)
+            if source_key in seen_sources:
+                continue
+            seen_sources.add(source_key)
+
+            # Build label
+            label = course_title
+            if lesson_num is not None:
+                label += f" - Lesson {lesson_num}"
+
+            # Look up lesson link from course_catalog
+            url = None
+            if lesson_num is not None:
+                url = self.store.get_lesson_link(course_title, int(lesson_num))
+
+            sources.append({"label": label, "url": url})
+
         self.last_sources = sources
-        
         return "\n\n".join(formatted)
 
 class ToolManager:
@@ -122,7 +136,11 @@ class ToolManager:
     def register_tool(self, tool: Tool):
         """Register any tool that implements the Tool interface"""
         tool_def = tool.get_tool_definition()
-        tool_name = tool_def.get("name")
+        # Support OpenAI format: { "type": "function", "function": { "name": ... } }
+        if "function" in tool_def:
+            tool_name = tool_def["function"].get("name")
+        else:
+            tool_name = tool_def.get("name")
         if not tool_name:
             raise ValueError("Tool must have a 'name' in its definition")
         self.tools[tool_name] = tool

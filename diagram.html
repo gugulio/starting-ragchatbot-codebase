@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>RAG Chatbot Flow Diagram</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    h1 { color: #1e293b; margin-bottom: 8px; }
+    p  { color: #64748b; margin-bottom: 32px; }
+    .mermaid { background: white; padding: 32px; border-radius: 12px;
+               box-shadow: 0 4px 24px rgba(0,0,0,0.08); max-width: 1100px; width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>RAG Chatbot — Query Flow</h1>
+  <p>Complete flow from user input to response display</p>
+
+  <div class="mermaid">
+sequenceDiagram
+    actor User as 使用者
+    participant FE as script.js<br/>(Frontend)
+    participant API as app.py<br/>(FastAPI)
+    participant RAG as rag_system.py
+    participant SM as session_manager.py
+    participant AI as ai_generator.py
+    participant ST as search_tools.py
+    participant VS as vector_store.py
+    participant Claude as Claude API
+
+    User->>FE: 輸入問題，按下 Enter
+    FE->>FE: 顯示使用者訊息<br/>插入載入動畫 ⋯
+
+    FE->>API: POST /api/query<br/>{ query, session_id }
+
+    alt 沒有 session_id
+        API->>SM: create_session()
+        SM-->>API: new session_id
+    end
+
+    API->>RAG: query(query, session_id)
+    RAG->>SM: get_conversation_history(session_id)
+    SM-->>RAG: 對話歷史（最多 2 輪）
+
+    RAG->>AI: generate_response(prompt, history, tools)
+
+    AI->>Claude: 第 1 次 API 呼叫<br/>system: 角色定義 + 對話歷史<br/>user: 問題<br/>tools: search_course_content
+
+    alt 一般知識問題（stop_reason = end_turn）
+        Claude-->>AI: 直接回傳文字
+    else 課程相關問題（stop_reason = tool_use）
+        Claude-->>AI: tool_use 請求<br/>{ query, course_name, lesson_number }
+
+        AI->>ST: execute_tool("search_course_content", ...)
+        ST->>VS: search(query, course_name, lesson_number)
+
+        alt 有指定 course_name
+            VS->>VS: course_catalog.query()<br/>語意搜尋最匹配課程名稱
+        end
+
+        VS->>VS: 建立過濾條件<br/>(course_title, lesson_number)
+        VS->>VS: course_content.query()<br/>SentenceTransformer 向量搜尋<br/>→ top-5 相關 chunks
+
+        VS-->>ST: SearchResults<br/>{ documents, metadata }
+        ST-->>AI: 格式化 chunks 文字
+
+        AI->>Claude: 第 2 次 API 呼叫<br/>messages: [問題, tool_use, chunks]
+        Claude-->>AI: 最終回答文字
+    end
+
+    AI-->>RAG: response 字串
+    RAG->>SM: add_exchange(session_id, query, response)
+    RAG-->>API: (answer, sources)
+
+    API-->>FE: { answer, sources, session_id }
+
+    FE->>FE: 移除載入動畫<br/>marked.parse() Markdown 渲染<br/>顯示 sources 折疊面板
+    FE-->>User: 顯示回應
+  </div>
+
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default', sequence: { actorMargin: 60, messageMargin: 30 } });
+  </script>
+</body>
+</html>

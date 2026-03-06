@@ -90,6 +90,8 @@ class VectorStore:
         search_limit = limit if limit is not None else self.max_results
         
         try:
+            count = self.course_content.count()
+            search_limit = min(search_limit, count) if count > 0 else search_limit
             results = self.course_content.query(
                 query_texts=[query],
                 n_results=search_limit,

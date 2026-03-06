@@ -3,9 +3,10 @@ const API_URL = '/api';
 
 // Global state
 let currentSessionId = null;
+let selectedModel = null;
 
 // DOM elements
-let chatMessages, chatInput, sendButton, totalCourses, courseTitles;
+let chatMessages, chatInput, sendButton, totalCourses, courseTitles, modelSelector;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,10 +16,12 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton = document.getElementById('sendButton');
     totalCourses = document.getElementById('totalCourses');
     courseTitles = document.getElementById('courseTitles');
-    
+    modelSelector = document.getElementById('modelSelector');
+
     setupEventListeners();
     createNewSession();
     loadCourseStats();
+    loadModels();
 });
 
 // Event Listeners
@@ -30,6 +33,14 @@ function setupEventListeners() {
     });
     
     
+    // Model selector
+    modelSelector.addEventListener('change', () => {
+        selectedModel = modelSelector.value;
+    });
+
+    // New chat button
+    document.getElementById('newChatBtn').addEventListener('click', createNewSession);
+
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
         button.addEventListener('click', (e) => {
@@ -67,7 +78,8 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 query: query,
-                session_id: currentSessionId
+                session_id: currentSessionId,
+                model: selectedModel
             })
         });
 
@@ -122,10 +134,15 @@ function addMessage(content, type, sources = null, isWelcome = false) {
     let html = `<div class="message-content">${displayContent}</div>`;
     
     if (sources && sources.length > 0) {
+        const sourceLinks = sources.map(s =>
+            s.url
+                ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer" class="source-link">${escapeHtml(s.label)}</a>`
+                : `<span class="source-tag">${escapeHtml(s.label)}</span>`
+        ).join('');
         html += `
             <details class="sources-collapsible">
-                <summary class="sources-header">Sources</summary>
-                <div class="sources-content">${sources.join(', ')}</div>
+                <summary>Sources</summary>
+                <div class="sources-content">${sourceLinks}</div>
             </details>
         `;
     }
@@ -147,9 +164,35 @@ function escapeHtml(text) {
 // Removed removeMessage function - no longer needed since we handle loading differently
 
 async function createNewSession() {
+    if (currentSessionId) {
+        try {
+            await fetch(`${API_URL}/session/${currentSessionId}`, { method: 'DELETE' });
+        } catch (e) {
+            // non-fatal; proceed with UI reset regardless
+        }
+    }
     currentSessionId = null;
     chatMessages.innerHTML = '';
     addMessage('Welcome to the Course Materials Assistant! I can help you with questions about courses, lessons and specific content. What would you like to know?', 'assistant', null, true);
+}
+
+// Load available models and populate dropdown
+async function loadModels() {
+    try {
+        const response = await fetch(`${API_URL}/models`);
+        if (!response.ok) throw new Error('Failed to load models');
+        const data = await response.json();
+        modelSelector.innerHTML = data.models
+            .map(m => `<option value="${m}">${m}</option>`)
+            .join('');
+        if (data.default_model) {
+            modelSelector.value = data.default_model;
+        }
+        selectedModel = modelSelector.value;
+    } catch (error) {
+        console.error('Error loading models:', error);
+        modelSelector.innerHTML = '<option value="">Default model</option>';
+    }
 }
 
 // Load course statistics
