@@ -76,11 +76,41 @@ body,
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
+/* Site Header */
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    background-color: var(--primary-color);
+    color: #fff;
+    padding: 0.75rem 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.site-header-content {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.site-header-logo {
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+.site-header-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
 /* Theme Toggle Button */
 #themeToggle,
 .theme-toggle {
     position: fixed;
-    top: 0.875rem;
+    top: 3.5rem;
     right: 1rem;
     z-index: 1000;
     width: 38px;
